@@ -1,4 +1,4 @@
-// w1ck intro: no words, under 5 seconds. Candles climb, one wicks hard, the reserve catches the wick, it snaps back and burns, and the trail becomes the w1ck mark.
+// w1ck intro: under 5 seconds. Candles climb, one wicks hard, the reserve catches the wick, it snaps back and burns, and the dot becomes the 1 in w1ck.
 (() => {
   const el = document.getElementById('intro'); if (!el) return;
   const h = location.hash; let seen = false; try { seen = sessionStorage.getItem('w1ck_intro') === '1'; } catch (e) { }
@@ -13,8 +13,10 @@
   const N = 15, C = []; let p = 0; for (let i = 0; i < N; i++) { const o = p, cv = o + (rnd() - .32) * 0.9; const hi = Math.max(o, cv) + .15 + rnd() * .45, lo = Math.min(o, cv) - .15 - rnd() * .4; C.push({ o, c: cv, h: hi, l: lo }); p = cv; }
   const last = p, lo = Math.min(...C.map(k => k.l)), hi = Math.max(...C.map(k => k.h)), DROP = (hi - lo) * 1.15;
   const parts = Array.from({ length: 34 }, () => ({ a: rnd() * Math.PI * 2, v: .35 + rnd() * .9, r: 1 + rnd() * 2.2 }));
-  // the w1ck mark (the same path as the logo), in a 0–100 box; its dot sits at (50, 83.5)
-  const MARK = new Path2D('M6 40 C 20 40, 30 42, 38 47 C 44 51, 46 60, 48 80 C 49 84, 51 84, 52 80 C 55 52, 62 34, 94 22');
+  // the name: w1ck in the site's display face, the 1 in lime
+  try { document.fonts && document.fonts.load('700 120px ID'); } catch (e) { }
+  function wordLayout() { const F = Math.min(W * .19, H * .3, 210); g.font = `700 ${F}px ID, Inter, system-ui, sans-serif`; const ch = ['w', '1', 'c', 'k'], tr = -.055 * F, ws = ch.map(x => g.measureText(x).width), tot = ws.reduce((a, b) => a + b, 0) + tr * 3;
+    const m = g.measureText('w1ck'), asc = m.actualBoundingBoxAscent || F * .7, des = m.actualBoundingBoxDescent || 0, base = H / 2 + (asc - des) / 2; let x = W / 2 - tot / 2; const pos = ch.map((c, i) => { const o = { c, x, w: ws[i] }; x += ws[i] + tr; return o; }); return { F, pos, base, asc }; }
   const T = { candles: [.25, 1.75], drop: [1.85, 2.35], catch: [2.35, 2.55], snap: [2.55, 2.95], fade: [2.95, 3.35], move: [3.0, 3.45], draw: [3.35, 4.15], out: 4.45 };
   let t0 = null, done = false, shake = 0;
   function finish(fast) { if (done) return; done = true; el.classList.add('out'); setTimeout(() => { el.remove(); document.documentElement.classList.remove('intro-on'); removeEventListener('resize', size); }, fast ? 320 : 520); }
@@ -39,18 +41,19 @@
     if (t >= T.drop[0] && fadeC > 0) { g.globalAlpha = fadeC; const colW = caught ? LIME : RED; g.strokeStyle = colW; g.lineWidth = 2; g.beginPath(); g.moveTo(xw, Y(Math.max(last, close) + .12)); g.lineTo(xw, Y(low)); g.stroke();
       g.fillStyle = colW; const yb = Y(Math.max(last, close)), hb = Math.max(2, Math.abs(Y(last) - Y(close))); g.fillRect(xw - step * .22, yb, step * .44, hb); g.globalAlpha = 1; }
     // the dot: lands on the wick's tip, pulses, then travels to where it sits in the mark
-    const S = Math.min(W, H) * .44, mx = W / 2 - S / 2, my = H / 2 - S * .52, markDot = { x: mx + S * .5, y: my + S * .835 }, mv = ease(ph(t, ...T.move));
-    if (caught) { const pop = ease(ph(t, T.catch[0], T.catch[0] + .18)), dx = xw + (markDot.x - xw) * mv, dy = Y(low) + (markDot.y - Y(low)) * mv, r = (4 + 3 * pop) + ((5.4 * S / 100) - 7) * mv;
+    const L = wordLayout(), one = L.pos[1], markDot = { x: one.x + one.w / 2, y: L.base - L.asc / 2 }, mv = ease(ph(t, ...T.move)), S = L.F * 1.2;
+    const dr = ease(ph(t, ...T.draw));
+    if (caught && dr < 1) { g.globalAlpha = 1 - dr; const pop = ease(ph(t, T.catch[0], T.catch[0] + .18)), dx = xw + (markDot.x - xw) * mv, dy = Y(low) + (markDot.y - Y(low)) * mv, r = (4 + 3 * pop) + (S * .05 - 7) * mv;
       if (t < T.catch[0] + .05 && !shake) shake = 9;
       const rp = ph(t, T.catch[0], T.catch[0] + .7); if (rp < 1) { g.strokeStyle = `rgba(198,255,60,${(1 - rp) * .7})`; g.lineWidth = 2; g.beginPath(); g.arc(dx, dy, r + rp * 60, 0, 6.283); g.stroke(); }
       // the burn: sparks off the catch
       const bp = ph(t, T.catch[0], T.catch[0] + .9); if (bp < 1) parts.forEach(q => { const dd = ease(bp) * 90 * q.v; g.fillStyle = `rgba(228,255,138,${(1 - bp) * .9})`; g.beginPath(); g.arc(xw + Math.cos(q.a) * dd, Y(low) + Math.sin(q.a) * dd - bp * 26, q.r * (1 - bp * .6), 0, 6.283); g.fill(); });
-      g.fillStyle = '#f2ffcc'; g.beginPath(); g.arc(dx, dy, r, 0, 6.283); g.fill(); }
-    // the mark draws itself through the dot
-    const dr = ease(ph(t, ...T.draw)); if (dr > 0) { const grow = 1 + ease(ph(t, T.draw[1], T.out)) * .06; g.save(); g.translate(W / 2, H / 2); g.scale(grow, grow); g.translate(-W / 2, -H / 2); g.translate(mx, my); g.scale(S / 100, S / 100);
-      const gr = g.createLinearGradient(6, 0, 94, 0); gr.addColorStop(0, 'rgba(184,242,44,0)'); gr.addColorStop(.3, '#b8f22c'); gr.addColorStop(.6, '#d9ff6e'); gr.addColorStop(1, '#f4ffd6');
-      g.strokeStyle = gr; g.lineWidth = 7; g.lineCap = 'round'; g.setLineDash([260, 260]); g.lineDashOffset = 260 * (1 - dr); g.stroke(MARK); g.setLineDash([]);
-      g.fillStyle = '#f2ffcc'; g.beginPath(); g.arc(50, 83.5, 5.4, 0, 6.283); g.fill(); g.restore(); }
+      g.fillStyle = '#f2ffcc'; g.beginPath(); g.arc(dx, dy, r, 0, 6.283); g.fill(); g.globalAlpha = 1; }
+    // the name: the dot opens into the lime 1, then w, c and k rise in around it
+    if (dr > 0) { const grow = 1 + ease(ph(t, T.draw[1], T.out)) * .05; g.save(); g.translate(W / 2, H / 2); g.scale(grow, grow); g.translate(-W / 2, -H / 2); g.font = `700 ${L.F}px ID, Inter, system-ui, sans-serif`; g.textBaseline = 'alphabetic';
+      const order = [1, 0, 2, 3]; order.forEach((idx, n) => { const q = L.pos[idx], k = ease(ph(t, T.draw[0] + n * .1, T.draw[0] + n * .1 + .45)); if (k <= 0) return;
+        g.save(); g.globalAlpha = k; if (idx === 1) { const sc = .4 + .6 * k, cx = q.x + q.w / 2, cy = L.base - L.asc / 2; g.translate(cx, cy); g.scale(sc, sc); g.translate(-cx, -cy); g.fillStyle = '#c6ff3c'; }
+        else { g.translate(0, (1 - k) * L.F * .18); g.fillStyle = '#f3f8ea'; } g.fillText(q.c, q.x, L.base); g.restore(); }); g.restore(); }
     g.restore(); }
   requestAnimationFrame(frame);
 })();
