@@ -228,3 +228,12 @@ body.home .hero.start { padding-top: 48px; }
 
 .cap.fixed .in2 b { font: 700 40px/1.1 var(--disp); letter-spacing: -.03em; } .upl { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; } .upl label { cursor: pointer; } .upl span { font-size: 12.5px; }
 @media (max-width: 640px) { .cap.fixed .in2 b { font-size: 30px; } }
+
+/* intro: no words, under 5 seconds, skippable */
+#intro { position: fixed; inset: 0; z-index: 200; background: #0b0f14; transition: opacity .45s ease; }
+#intro.out { opacity: 0; pointer-events: none; }
+#intro canvas { display: block; }
+.iskip { position: absolute; right: 20px; top: 18px; display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.04); color: #9aa5b1; font: 500 13px var(--mono); letter-spacing: .04em; cursor: pointer; transition: color .2s, border-color .2s, background .2s; }
+.iskip:hover { color: #f3f8ea; border-color: rgba(198,255,60,.5); background: rgba(198,255,60,.06); }
+.iskip svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+html.intro-on, html.intro-on body { overflow: hidden; }
