@@ -1,5 +1,5 @@
 // w1ck API: every wick gets bought.
-// Every coin launches on the w1ck launchpad on Raydium LaunchLab with its own curve (pick where it starts, pick where it graduates) and its own wick rule
+// Every coin launches on the w1ck launchpad on Raydium LaunchLab at a $10K market cap, with its own graduation (2x to 32x) and its own wick rule
 // (pick the wick: how far it has to fall from its 24h high; pick the buy: how much of its reserve each wick spends). 1% of every curve trade fills the coin's
 // reserve. When the coin wicks past its trigger, the reserve wallet buys the wick through Jupiter and burns what it bought, in one transaction with a memo.
 // GET  a=market · a=coins · a=coin&mint= · a=wickstate&mint= · a=ledger · a=reserves · a=launchlab · a=t (token metadata) · a=wallet · a=profiles · a=profile · a=holders · a=pad · a=bal · a=simWick
@@ -43,6 +43,17 @@ const memoIx = (signer, text) => new TransactionInstruction({ programId: MEMO, k
 const tagTo = (from, to, extra) => { const ix = SystemProgram.transfer({ fromPubkey: from, toPubkey: to, lamports: 0 }); if (extra) ix.keys.push({ pubkey: extra, isSigner: false, isWritable: false }); return ix; };
 const ser = t => Buffer.from(t.serialize({ requireAllSignatures: false, verifySignatures: false })).toString('base64');
 const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
+// uploaded coin images live in the project's Vercel Blob store at a fixed path, so the metadata link only carries a short key
+const EXT = { p: ['png', 'image/png'], j: ['jpg', 'image/jpeg'], w: ['webp', 'image/webp'], g: ['gif', 'image/gif'] };
+const blobBase = () => { const id = (process.env.BLOB_STORE_ID || '').replace(/^store_/, '') || String(process.env.BLOB_READ_WRITE_TOKEN || '').split('_')[3] || ''; return id ? `https://${id.toLowerCase()}.public.blob.vercel-storage.com` : null; };
+const imageUrl = code => { const m = String(code).match(/^b([0-9a-f]{16})([pjwg])$/); const base = blobBase(); return m && base ? `${base}/w1ck/${m[1]}.${EXT[m[2]][0]}` : null; };
+async function upload(req) { const b = await body(req); const buf = Buffer.from(String(b.data || '').replace(/^data:[^,]+,/, ''), 'base64');
+  if (buf.length < 100) throw new Error('no image'); if (buf.length > 750 * 1024) throw new Error('image too big: keep it under 750 KB');
+  const h = buf.slice(0, 12).toString('hex'), code = h.startsWith('89504e47') ? 'p' : h.startsWith('ffd8ff') ? 'j' : h.startsWith('474946') ? 'g' : (h.startsWith('52494646') && buf.slice(8, 12).toString() === 'WEBP') ? 'w' : null;
+  if (!code) throw new Error('png, jpg, webp or gif only');
+  const key = require('crypto').createHash('sha256').update(buf).digest('hex').slice(0, 16), { put } = require('@vercel/blob');
+  const r = await put(`w1ck/${key}.${EXT[code][0]}`, buf, { access: 'public', addRandomSuffix: false, allowOverwrite: true, contentType: EXT[code][1], cacheControlMaxAge: 31536000 });
+  return { image: 'b' + key + code, url: r.url }; }
 
 // ---------------------------------------------------------------- the curve: two market caps in, LaunchLab's curve settings out
 // LaunchLab's constant-product curve, with the graduation price equal to the pool's opening price:
@@ -55,7 +66,7 @@ async function jupInfo(mints) { const o = {}; for (let i = 0; i < mints.length; 
 let mktCache = null;
 async function market() { if (mktCache && Date.now() - mktCache.t < 30000) return mktCache.v;
   const P = await jupInfo([WSOL.toBase58()]); const { cfg } = await chain().catch(() => ({ cfg: null }));
-  const v = { at: Date.now(), pad: PIN.pad || null, sol: P[WSOL.toBase58()] || null, wick: WK, buy: BY, run: RUN, presets: CFG.presets, minRaiseSol: cfg ? +cfg.minFundRaisingB.toString() / 1e9 : 24, maxSold: cfg ? 1 - +cfg.minMigrateRateA.toString() / PPM : .85, minSold: cfg ? +cfg.minSellRateA.toString() / PPM : .2 };
+  const v = { at: Date.now(), pad: PIN.pad || null, sol: P[WSOL.toBase58()] || null, wick: WK, buy: BY, run: RUN, presets: CFG.presets, defaultPreset: CFG.defaultPreset, startUsd: CFG.startUsd, minRaiseSol: cfg ? +cfg.minFundRaisingB.toString() / 1e9 : 24, maxSold: cfg ? 1 - +cfg.minMigrateRateA.toString() / PPM : .85, minSold: cfg ? +cfg.minSellRateA.toString() / PPM : .2 };
   mktCache = { t: Date.now(), v }; return v; }
 
 // ---------------------------------------------------------------- the launchpad (the p4d engine)
@@ -113,15 +124,14 @@ async function buildLaunch(req) {
   if (name.length < 2) throw new Error('give your coin a name'); if (symbol.length < 2) throw new Error('give your coin a ticker (2 to 10 letters)');
   const wick = Math.round(+b.wick), buy = Math.round(+b.buy);
   if (!(wick >= WK.min && wick <= WK.max)) throw new Error(`the wick is ${WK.min}% to ${WK.max}%`); if (!(buy >= BY.min && buy <= BY.max)) throw new Error(`the buy is ${BY.min}% to ${BY.max}% of the reserve`);
-  // the curve
-  let sell, raise, c;
-  if (b.curve === 'default' || (!b.startSol && !b.gradSol)) { sell = new BN(DEFAULT_SELL.toString()); raise = new BN(DEFAULT_RAISE.toString()); c = curveFromRow(DEFAULT_SELL, DEFAULT_RAISE); }
-  else { const s0 = +b.startSol, s1 = +b.gradSol; if (!(s0 > 0 && s1 > s0)) throw new Error('the graduation has to be above the start');
-    c = curveOf(s0, s1); if (c.run < RUN.min - 1e-9 || c.run > RUN.max + 1e-9) throw new Error(`the run (graduation ÷ start) is ${RUN.min}x to ${RUN.max}x`);
-    const minRaise = +cfg.minFundRaisingB.toString() / 1e9, minSold = +cfg.minSellRateA.toString() / PPM, maxSold = 1 - +cfg.minMigrateRateA.toString() / PPM;
-    if (c.raise < minRaise) throw new Error(`LaunchLab's minimum raise is ${minRaise} SOL. pick a higher graduation`); if (c.sold < minSold || c.sold > maxSold) throw new Error('that curve sells too little or too much of the supply');
-    sell = new BN(String(Math.floor(c.sold * 1e9) * 1e6)); raise = new BN(String(Math.round(c.raise * 1e9))); }
-  let img = String(b.image || '1'); if (/^[1-6]$/.test(img)) img = img; else if (/^https:\/\/[^\s"'<>]{6,150}$/.test(img)) img = 'u' + b64u(img); else throw new Error('pick an image, or paste an https image link');
+  // the curve: every coin starts at $10K (converted to SOL at today's price); the launcher picks how far it runs before it graduates
+  const solUsd = (await market()).sol?.usd; if (!(solUsd > 0)) throw new Error('could not read the SOL price. try again in a moment');
+  const run = +b.run; if (!(run >= RUN.min - 1e-9 && run <= RUN.max + 1e-9)) throw new Error(`the graduation is ${RUN.min}x to ${RUN.max}x the $10K start`);
+  const startSol = CFG.startUsd / solUsd, c = curveOf(startSol, startSol * run);
+  const minRaise = +cfg.minFundRaisingB.toString() / 1e9, minSold = +cfg.minSellRateA.toString() / PPM, maxSold = 1 - +cfg.minMigrateRateA.toString() / PPM;
+  if (c.raise < minRaise) throw new Error(`LaunchLab's minimum raise is ${minRaise} SOL. pick a higher graduation`); if (c.sold < minSold || c.sold > maxSold) throw new Error('that curve sells too little or too much of the supply');
+  const sell = new BN(String(Math.floor(c.sold * 1e9) * 1e6)), raise = new BN(String(Math.round(c.raise * 1e9)));
+  let img = String(b.image || '1'); if (/^[1-6]$/.test(img) || /^b[0-9a-f]{16}[pjwg]$/.test(img)) img = img; else if (/^https:\/\/[^\s"'<>]{6,150}$/.test(img)) img = 'u' + b64u(img); else throw new Error('pick an image, upload one, or paste an https image link');
   const uri = host(req) + '/api/w1ck?a=t&n=' + encodeURIComponent(name) + '&s=' + symbol + '&w=' + wick + '&b=' + buy + '&i=' + img;
   if (uri.length > 200) throw new Error('name or image link too long for on-chain metadata. use a preset image or a shorter link');
   const buySol = Math.max(0, +b.buySol || 0); if (buySol > Math.min(20, +raise.toString() / 1e9 / 2)) throw new Error('the first buy is capped at half the raise, and 20 SOL');
@@ -133,11 +143,11 @@ async function buildLaunch(req) {
     extraSigners: [mint], feePayer: wallet, computeBudgetConfig: { units: 600000, microLamports: 60000 },
   });
   const r = await finish(transactions, wallet, [mint], extra => tagTo(wallet, TAG, extra ? mint.publicKey : null), !!b.simulate);
-  return { mint: mint.publicKey.toBase58(), pool: extInfo?.address?.poolId?.toBase58() || R.getPdaLaunchpadPoolId(PROGRAM, mint.publicKey, WSOL).publicKey.toBase58(), uri, curve: c, wick, buy, ...r };
+  return { mint: mint.publicKey.toBase58(), pool: extInfo?.address?.poolId?.toBase58() || R.getPdaLaunchpadPoolId(PROGRAM, mint.publicKey, WSOL).publicKey.toBase58(), uri, curve: { ...c, startUsd: CFG.startUsd, gradUsd: CFG.startUsd * run }, wick, buy, ...r };
 }
 // the token's metadata: the wick rule lives in the link, so anyone can read it from the chain
 function tokenMeta(req, q) { const name = clean(q.get('n'), 32), symbol = clean(q.get('s'), 10), i = String(q.get('i') || '1'), w = +q.get('w') || null, b = +q.get('b') || null;
-  const image = /^[1-6]$/.test(i) ? host(req) + '/coins/' + i + '.png' : i[0] === 'u' ? unb64u(i.slice(1)) : host(req) + '/coins/1.png';
+  const image = /^[1-6]$/.test(i) ? host(req) + '/coins/' + i + '.png' : i[0] === 'u' ? unb64u(i.slice(1)) : i[0] === 'b' ? (imageUrl(i) || host(req) + '/coins/1.png') : host(req) + '/coins/1.png';
   return { name, symbol, image, description: `Launched on w1ck. Every wick gets bought: 1% of every trade of $${symbol} fills its reserve${w ? `, and when $${symbol} falls ${w}% below its 24h high, the reserve buys the wick with ${b}% of what it holds and burns it` : ''}.`, external_url: host(req), attributes: w ? [{ trait_type: 'wick', value: w + '%' }, { trait_type: 'buy', value: b + '% of reserve' }] : [], createdOn: host(req) }; }
 
 // ---------------------------------------------------------------- the wick log: every wick buy, read from the chain
@@ -298,8 +308,10 @@ module.exports = async (req, res) => { if (req.method === 'GET') res.setHeader('
     if (a === 'simWick') { const w = pk(q.get('wallet'), 'bad wallet'), lam = Math.floor(Math.min(1, +q.get('sol') || .01) * 1e9); const r = await wickTx(w, pk(q.get('mint'), 'bad mint').toBase58(), lam, 2500);
       const raw = Buffer.from(r.tx, 'base64'), s = await conn.simulateTransaction(VersionedTransaction.deserialize(raw), { sigVerify: false, replaceRecentBlockhash: true }); const vt = VersionedTransaction.deserialize(raw), keys = vt.message.staticAccountKeys.map(k => k.toBase58()); return out(res, 200, { bytes: raw.length, quote: r.quote, err: s.value.err, units: s.value.unitsConsumed, programs: vt.message.compiledInstructions.map(i => keys[i.programIdIndex] || '#' + i.programIdIndex), burnLogs: (s.value.logs || []).filter(l => /Burn/.test(l)), logs: (s.value.logs || []).filter(l => /Memo|rror|ail/.test(l)).slice(-6) }); }
     // a dry run of a launch on any launchpad: builds the curve and simulates the create transaction
-    if (a === 'simLaunch') { const fake = { body: { wallet: q.get('wallet'), pad: q.get('pad') || RAYDIUM_PLATFORM.toBase58(), name: 'w1ck test', symbol: 'TEST', image: '1', wick: 25, buy: 25, startSol: +q.get('start') || 0, gradSol: +q.get('grad') || 0, curve: q.get('curve') || '', simulate: true }, headers: req.headers };
+    if (a === 'simLaunch') { const fake = { body: { wallet: q.get('wallet'), pad: q.get('pad') || RAYDIUM_PLATFORM.toBase58(), name: 'w1ck test', symbol: 'TEST', image: '1', wick: 25, buy: 25, run: +q.get('run') || 6, simulate: true }, headers: req.headers };
       const r = await buildLaunch(fake); return out(res, 200, { curve: r.curve, uri: r.uri, txs: r.txs.length, sim: r.sim }); }
+    if (req.method === 'POST' && a === 'upload') return out(res, 200, await upload(req));
+    if (a === 'img') { const u = imageUrl(String(q.get('k') || '')); if (!u) return out(res, 404, { error: 'no image' }); res.statusCode = 302; res.setHeader('location', u); res.setHeader('cache-control', 'public, max-age=31536000'); return res.end(); }
     if (req.method === 'POST' && a === 'buildPad') return out(res, 200, await buildPad(req));
     if (req.method === 'POST' && a === 'buildLaunch') return out(res, 200, await buildLaunch(req));
     if (req.method === 'POST' && a === 'buildProfile') return out(res, 200, await buildProfile(req));

@@ -1,13 +1,42 @@
 {
   "name": "w1ck",
   "pad": null,
-  "wick": { "min": 10, "max": 60, "def": 25 },
-  "buy": { "min": 10, "max": 100, "def": 25 },
-  "run": { "min": 1.5, "max": 32 },
+  "wick": {
+    "min": 10,
+    "max": 60,
+    "def": 25
+  },
+  "buy": {
+    "min": 10,
+    "max": 100,
+    "def": 25
+  },
+  "run": {
+    "min": 1.5,
+    "max": 32
+  },
   "presets": [
-    { "id": "default", "name": "LaunchLab default", "startUsd": null, "gradUsd": null, "run": 14.69, "note": "The curve every LaunchLab coin gets: 85 SOL raised, 79.3% sold." },
-    { "id": "skip", "name": "Skip the low caps", "startMul": 6, "run": 8, "note": "Starts six times higher than the default and runs 8x." },
-    { "id": "quick", "name": "Quick graduation", "startMul": 3, "run": 3, "note": "A short curve that fills fast." },
-    { "id": "long", "name": "Long runway", "startMul": 1, "run": 32, "note": "The longest curve LaunchLab allows." }
-  ]
+    {
+      "id": "quick",
+      "name": "$30K",
+      "run": 3
+    },
+    {
+      "id": "mid",
+      "name": "$60K",
+      "run": 6
+    },
+    {
+      "id": "big",
+      "name": "$120K",
+      "run": 12
+    },
+    {
+      "id": "long",
+      "name": "$320K",
+      "run": 32
+    }
+  ],
+  "startUsd": 10000,
+  "defaultPreset": "mid"
 }
