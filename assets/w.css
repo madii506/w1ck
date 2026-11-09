@@ -219,3 +219,12 @@ body.sub #cv { opacity: .35; transition: opacity .6s; } #cv { transition: opacit
 .stp p { font-size: 18px; } .stp { min-height: 52vh; }
 @media (max-width: 1060px) { .hero.start { padding-top: 130px; justify-content: flex-start; } }
 @media (prefers-reduced-motion: reduce) { #app.pin > * { animation: none; } }
+
+/* the start screen has no nav; it slides in once you enter */
+.top { transition: background .4s, border-color .4s, opacity .5s var(--ease), transform .5s var(--ease); }
+body.home .top { opacity: 0; transform: translateY(-24px); pointer-events: none; }
+body.home .hero.start { padding-top: 48px; }
+@media (max-width: 1060px) { body.home .hero.start { padding-top: 48px; justify-content: center; } }
+
+.cap.fixed .in2 b { font: 700 40px/1.1 var(--disp); letter-spacing: -.03em; } .upl { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; } .upl label { cursor: pointer; } .upl span { font-size: 12.5px; }
+@media (max-width: 640px) { .cap.fixed .in2 b { font-size: 30px; } }

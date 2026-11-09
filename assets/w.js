@@ -82,28 +82,29 @@
   const coinBy = m => ((S.coins && S.coins.coins) || []).find(c => c.mint === m) || null;
 
   // ---------------------------------------------------------------- the picker: the curve (two market caps) and the wick (two percentages), shared by the hero and the launcher
-  const LN = { s0: null, s1: null, wick: 25, buy: 25, preset: 'default', img: '1', busy: false };
+  const START = 10000, LN = { run: 6, s0: null, s1: null, wick: 25, buy: 25, preset: 'mid', img: '1', imgUrl: null, busy: false };
+  const setStart = () => { const u = solUsd(); if (u) { LN.s0 = START / u; LN.s1 = LN.s0 * LN.run; } };
   const parseMoney = v => { const s = String(v).trim().toLowerCase().replace(/[$,\s]/g, ''); const m = s.match(/^([\d.]+)([km]?)$/); if (!m) return NaN; return +m[1] * (m[2] === 'k' ? 1e3 : m[2] === 'm' ? 1e6 : 1); };
-  function preset(id) { const P = ((S.m && S.m.presets) || []).find(p => p.id === id); if (!P) return; LN.preset = id; const s0 = DEF.startSol * (P.startMul || 1); LN.s0 = s0; LN.s1 = s0 * (P.id === 'default' ? DEF.run : P.run); syncPickers(true); }
+  function preset(id) { const P = ((S.m && S.m.presets) || []).find(p => p.id === id); if (!P) return; LN.preset = id; LN.run = P.run; setStart(); syncPickers(true); }
   function pickerHtml(id) { return `<div class="pkw" data-pk="${id}">
-      <div class="pk-row"><div class="cap"><small>Starts at</small><div class="in2"><span>$</span><input class="s0" inputmode="decimal" aria-label="starting market cap"></div><em class="s0s">— SOL</em></div>
+      <div class="pk-row"><div class="cap fixed"><small>Every coin starts at</small><div class="in2"><span>$</span><b class="s0v">10K</b></div><em class="s0s">— SOL</em></div>
         <svg class="spark" viewBox="0 0 150 64"><path class="spk"/></svg>
         <div class="cap r"><small>Graduates at</small><div class="in2"><span>$</span><input class="s1" inputmode="decimal" aria-label="graduation market cap"></div><em class="s1s">— SOL</em></div></div>
       <div class="pk-info"></div>
       <div class="pk-wick"><div class="sl"><small><span>the wick</span><b class="wv">25%</b></small><input class="rng wk" type="range" min="10" max="60" step="1" value="25" aria-label="wick"><p class="wp"></p></div>
         <div class="sl"><small><span>the buy</span><b class="bv">25%</b></small><input class="rng by" type="range" min="10" max="100" step="5" value="25" aria-label="buy"><p class="bp"></p></div></div>
       <div class="chips">${((S.m && S.m.presets) || []).map(p => `<button class="chip" data-pre="${p.id}">${esc(p.name)}</button>`).join('')}</div></div>`; }
-  function curveNow() { if (!(LN.s0 > 0 && LN.s1 > 0)) return null; const c = curveOf(LN.s0, LN.s1), M = S.m || {}, err = c.run < 1.5 - 1e-9 ? 'the graduation has to be at least 1.5× the start' : c.run > 32 + 1e-9 ? 'the longest curve LaunchLab allows is 32× (85% sold)' : c.raise < (M.minRaiseSol || 24) - 1e-9 ? `LaunchLab's minimum raise is ${M.minRaiseSol || 24} SOL: pick a higher graduation` : c.sold > (M.maxSold || .85) + 1e-9 ? 'that curve sells more than 85% of the supply' : null; return { ...c, err }; }
+  function curveNow() { if (!(LN.s0 > 0 && LN.s1 > 0)) return null; const c = curveOf(LN.s0, LN.s1), M = S.m || {}, err = c.run < 1.5 - 1e-9 ? 'graduate at $15K or higher' : c.run > 32 + 1e-9 ? 'the highest graduation LaunchLab allows from $10K is $320K' : c.raise < (M.minRaiseSol || 24) - 1e-9 ? `LaunchLab's minimum raise is ${M.minRaiseSol || 24} SOL: pick a higher graduation` : c.sold > (M.maxSold || .85) + 1e-9 ? 'that curve sells more than 85% of the supply' : null; return { ...c, err }; }
   function pickerInit(el) { if (!el || el._on) return; el._on = 1;
-    const s0 = $('.s0', el), s1 = $('.s1', el), wk = $('.wk', el), by = $('.by', el);
-    const onCap = () => { const u = solUsd(); if (!u) return; const a = parseMoney(s0.value), b = parseMoney(s1.value); if (a > 0) LN.s0 = a / u; if (b > 0) LN.s1 = b / u; LN.preset = null; syncPickers(false, el); };
-    s0.addEventListener('input', onCap); s1.addEventListener('input', onCap); s0.addEventListener('blur', () => syncPickers(true)); s1.addEventListener('blur', () => syncPickers(true));
+    const s1 = $('.s1', el), wk = $('.wk', el), by = $('.by', el);
+    const onCap = () => { const b = parseMoney(s1.value); if (b > 0) { LN.run = b / START; setStart(); } LN.preset = null; syncPickers(false, el); };
+    s1.addEventListener('input', onCap); s1.addEventListener('blur', () => syncPickers(true));
     wk.addEventListener('input', () => { LN.wick = +wk.value; syncPickers(false); }); by.addEventListener('input', () => { LN.buy = +by.value; syncPickers(false); });
     $('.chips', el).onclick = e => { const b = e.target.closest('.chip'); if (b) preset(b.dataset.pre); };
     syncPickers(true); }
   function syncPickers(writeInputs, except) { const u = solUsd(), c = curveNow();
     $$('.pkw').forEach(el => { if (!el._on) return;
-      if (u && LN.s0 && (writeInputs || el !== except)) { const a = $('.s0', el), b = $('.s1', el); if (document.activeElement !== a) a.value = kfmt(LN.s0 * u); if (document.activeElement !== b) b.value = kfmt(LN.s1 * u); }
+      if (u && LN.s0 && (writeInputs || el !== except)) { const b = $('.s1', el); if (document.activeElement !== b) b.value = kfmt(START * LN.run); }
       $('.s0s', el).textContent = LN.s0 ? num(LN.s0, 1) + ' SOL' : '— SOL'; $('.s1s', el).textContent = LN.s1 ? num(LN.s1, 1) + ' SOL' : '— SOL';
       if (c) $('.spk', el).setAttribute('d', curvePath(Math.max(1.01, c.run), 150, 64));
       const inf = $('.pk-info', el); inf.className = 'pk-info' + (c && c.err ? ' err' : ''); inf.innerHTML = !u ? 'reading the SOL price…' : !c ? '' : c.err ? esc(c.err) : `<b>${c.run.toFixed(1)}×</b> on the curve · raises <b>${num(c.raise, 1)} SOL</b> (${big(c.raise * u)}) · <b>${(c.sold * 100).toFixed(1)}%</b> sold on the curve`;
@@ -119,13 +120,13 @@
   const PAGES = {
     start: () => `<section class="hero start"><div class="wrap" style="display:flex;flex-direction:column;align-items:center">
       <h1 class="word">w<span class="one">1</span>ck</h1>
-      <p class="tagl">Pick the curve <span>/</span> pick the wick</p>
+      <p class="tagl">Every coin starts at $10K <span>/</span> every wick gets bought</p>
       <div class="picker">${pickerHtml('hero')}</div>
       <div class="hcta"><a class="btn go" href="#/launch">Launch →</a><a class="btn" href="#/board">Board</a><a class="btn" href="#/how">How it works</a></div>
-      <p class="hnote mono" id="liveLine">reading the launchpad…</p></div></section>`,
+</div></section>`,
     how: () => `<div class="page"><div class="wrap">${head('how it works', 'Every wick', 'gets bought.')}
       <div class="story"><div class="steps">
-        <div class="stp" data-i="0"><span class="n">01</span><h3>Pick the curve</h3><p>Where it starts, where it graduates.</p></div>
+        <div class="stp" data-i="0"><span class="n">01</span><h3>Starts at $10K</h3><p>Every coin. You pick where it graduates.</p></div>
         <div class="stp" data-i="1"><span class="n">02</span><h3>Trades fill the reserve</h3><p>1% of every trade goes to the coin's own reserve.</p></div>
         <div class="stp" data-i="2"><span class="n">03</span><h3>Pick the wick</h3><p>How far below its 24h high before the reserve steps in.</p></div>
         <div class="stp" data-i="3"><span class="n">04</span><h3>The wick gets bought</h3><p>The reserve buys the wick and burns it. One transaction.</p></div>
@@ -140,11 +141,11 @@
       <div class="btool rv"><button class="chip on" data-s="new">newest</button><button class="chip" data-s="mcap">market cap</button><button class="chip" data-s="res">reserve</button><button class="chip" data-s="fill">closest to graduating</button><span class="sp"></span><span class="mono dim" id="bCount"></span></div>
       <div class="card board rv" id="bList"><div class="empty">reading the launchpad…</div></div>
       <div class="else"><div class="card bigst rv"><span class="kick">elsewhere on LaunchLab</span><b id="llPct">—</b><p id="llTxt">took the default curve.</p></div><div class="card rv d1" id="llList"><div class="empty">reading LaunchLab…</div></div></div></div></div>`,
-    launch: () => `<div class="page"><div class="wrap">${head('launch', 'Your curve.', 'Your wick.')}
+    launch: () => `<div class="page"><div class="wrap">${head('launch', 'Starts at $10K.', 'Your wick.')}
       <div class="launch">
-        <div class="card lform rv"><div class="blk"><h3>01 · curve and wick</h3>${pickerHtml('launch')}</div>
+        <div class="card lform rv"><div class="blk"><h3>01 · graduation and wick</h3>${pickerHtml('launch')}</div>
           <div class="blk"><h3>02 · the coin</h3><div class="frow"><label class="fld"><span>Name</span><input id="cName" maxlength="32" placeholder="Wick Dog"></label><label class="fld"><span>Ticker</span><input id="cSym" maxlength="10" placeholder="WDOG"></label></div>
-            <span class="fld"><span>Image</span></span><div class="imgs" id="imgs"></div><label class="fld"><input id="cImg" placeholder="or paste an https image link"></label>
+            <span class="fld"><span>Image</span></span><div class="imgs" id="imgs"></div><div class="upl"><label class="btn sm" for="cFile">Upload your image</label><input id="cFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden><span class="mono dim" id="cFileSt"></span></div><label class="fld"><input id="cImg" placeholder="or paste an https image link"></label>
             <label class="fld"><span>Dev buy (SOL, optional)</span><input id="cBuy" type="number" min="0" step="0.1" placeholder="0"></label></div></div>
         <div class="card prevw rv d1"><div class="pcard" id="prev"></div><div class="padst" id="padSt"><i></i>reading the launchpad…</div><button class="btn go wide" id="launchBtn">Connect wallet</button><div class="stat2" id="lStat"></div>
           <div class="cost">1B supply · no mint or freeze authority · ~0.03 SOL to launch</div></div>
@@ -157,7 +158,7 @@
       <div class="pbar rv"><span class="mono dim" id="pCount"></span><button class="btn sm go" id="mkProfile">Make my profile</button></div><div class="people" id="peopleList"><div class="card empty">reading…</div></div></div></div>`,
     faq: () => `<div class="page"><div class="wrap">${head('fees and faq', 'Every cut,', 'in the open.')}
       <div class="fees"><div class="card rv"><b class="lm">1%</b><p>to the coin's reserve</p></div><div class="card rv d1"><b>0.25%</b><p>to Raydium LaunchLab</p></div><div class="card rv d2"><b>0%</b><p>to the creator</p></div><div class="card rv d3"><b>0%</b><p>to w1ck</p></div></div>
-      <div class="card limits rv"><div>Run<b>1.5× to 32×</b></div><div>Raise<b>24 SOL minimum</b></div><div>Sold on the curve<b>up to 85%</b></div><div>The wick<b>10% to 60% below the 24h high</b></div><div>The buy<b>10% to 100% of the reserve</b></div><div>Dev buy<b>at most half the raise, 20 SOL</b></div><div>Graduation<b>Raydium pool · 50% LP burned</b></div></div>
+      <div class="card limits rv"><div>Start<b>$10K for every coin</b></div><div>Graduation<b>$15K to $320K</b></div><div>Raise<b>24 SOL minimum</b></div><div>Sold on the curve<b>up to 85%</b></div><div>The wick<b>10% to 60% below the 24h high</b></div><div>The buy<b>10% to 100% of the reserve</b></div><div>Dev buy<b>at most half the raise, 20 SOL</b></div><div>At graduation<b>Raydium pool · 50% LP burned</b></div></div>
       <div class="faq rv" style="margin-top:50px">
         <details><summary>What's a wick?</summary><p>The line under a candle: the price fell that far, then came back. w1ck buys those moments.</p></details>
         <details><summary>Where does the reserve come from?</summary><p>1% of every curve trade, counted per coin, minus every wick it has already bought.</p></details>
@@ -267,23 +268,29 @@
     labels(); if (T.mint) pick(T.mint); }
 
   // ---------------------------------------------------------------- the launcher
+  function squareImage(file) { return new Promise((ok, no) => { const url = URL.createObjectURL(file), im = new Image(); im.onload = () => { const S2 = 512, c = document.createElement('canvas'); c.width = c.height = S2; const g = c.getContext('2d'), s = Math.min(im.naturalWidth, im.naturalHeight);
+      g.drawImage(im, (im.naturalWidth - s) / 2, (im.naturalHeight - s) / 2, s, s, 0, 0, S2, S2); URL.revokeObjectURL(url); let d = c.toDataURL(file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png', .9); if (d.length * .75 > 700 * 1024) d = c.toDataURL('image/jpeg', .85); ok(d.split(',')[1]); };
+    im.onerror = () => no(new Error('could not read that image')); im.src = url; }); }
   function launchInit() { const box = $('#imgs'); if (!box || box._on) return; box._on = 1;
     box.innerHTML = [1, 2, 3, 4, 5, 6].map(i => `<button data-i="${i}" aria-label="image ${i}"><img src="/coins/${i}.png" alt=""></button>`).join('');
-    box.onclick = e => { const b = e.target.closest('button'); if (!b) return; LN.img = b.dataset.i; $('#cImg').value = ''; renderLaunch(); };
-    ['#cName', '#cSym', '#cImg', '#cBuy'].forEach(id => $(id).addEventListener('input', () => { if (id === '#cSym') $(id).value = $(id).value.toUpperCase().replace(/[^A-Z0-9]/g, ''); if (id === '#cImg') LN.img = $('#cImg').value.trim() || '1'; renderLaunch(); }));
+    box.onclick = e => { const b = e.target.closest('button'); if (!b) return; LN.img = b.dataset.i; LN.imgUrl = null; $('#cImg').value = ''; setT('#cFileSt', ''); renderLaunch(); };
+    $('#cFile').onchange = async e => { const f = e.target.files && e.target.files[0]; if (!f) return; const st = $('#cFileSt'); try { if (f.size > 12e6) throw new Error('that file is too big'); st.textContent = 'preparing…';
+        const data = await squareImage(f); st.textContent = 'uploading…'; const r = await post('upload', { data }); LN.img = r.image; LN.imgUrl = r.url; $('#cImg').value = ''; st.textContent = 'uploaded ✓'; renderLaunch(); }
+      catch (err) { st.textContent = err.message; } finally { e.target.value = ''; } };
+    ['#cName', '#cSym', '#cImg', '#cBuy'].forEach(id => $(id).addEventListener('input', () => { if (id === '#cSym') $(id).value = $(id).value.toUpperCase().replace(/[^A-Z0-9]/g, ''); if (id === '#cImg') { LN.img = $('#cImg').value.trim() || '1'; LN.imgUrl = null; setT('#cFileSt', ''); } renderLaunch(); }));
     $('#launchBtn').onclick = doLaunch; renderLaunch(); }
-  function renderLaunch() { if (!$('#launchBtn')) return; const custom = /^https:\/\//.test(LN.img); $$('#imgs button').forEach(b => b.classList.toggle('on', !custom && b.dataset.i === LN.img));
-    const c = curveNow(), u = solUsd(), name = $('#cName').value.trim() || 'Your coin', sym = $('#cSym').value.trim() || 'TICKER', src = custom ? LN.img : `/coins/${/^[1-6]$/.test(LN.img) ? LN.img : 1}.png`;
+  function renderLaunch() { if (!$('#launchBtn')) return; const custom = /^https:\/\//.test(LN.img) || LN.img[0] === 'b'; $$('#imgs button').forEach(b => b.classList.toggle('on', !custom && b.dataset.i === LN.img));
+    const c = curveNow(), u = solUsd(), name = $('#cName').value.trim() || 'Your coin', sym = $('#cSym').value.trim() || 'TICKER', src = LN.img[0] === 'b' ? LN.imgUrl : custom ? LN.img : `/coins/${/^[1-6]$/.test(LN.img) ? LN.img : 1}.png`;
     $('#prev').innerHTML = `<div class="ph1"><img src="${esc(src)}" alt="" onerror="this.src='/coins/1.png'"><b>${esc(name)} <span>$${esc(sym)}</span></b></div>
       <svg viewBox="0 0 300 120" preserveAspectRatio="none"><path d="${c ? curvePath(Math.max(1.01, c.run), 300, 120, 8) : ''}" fill="none" stroke="#c6ff3c" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>
-      <div class="kvs"><div>starts at<b>${c && u ? big(c.startSol * u) : '—'}</b></div><div>graduates at<b>${c && u ? big(c.gradSol * u) : '—'}</b></div><div>sold on the curve<b>${c ? (c.sold * 100).toFixed(1) + '%' : '—'}</b></div><div>raises<b>${c ? num(c.raise, 1) + ' SOL' : '—'}</b></div><div>the wick<b>−${LN.wick}% from the 24h high</b></div><div>the buy<b>${LN.buy}% of the reserve</b></div></div>`;
+      <div class="kvs"><div>starts at<b>$10K</b></div><div>graduates at<b>${c && u ? big(c.gradSol * u) : '—'}</b></div><div>sold on the curve<b>${c ? (c.sold * 100).toFixed(1) + '%' : '—'}</b></div><div>raises<b>${c ? num(c.raise, 1) + ' SOL' : '—'}</b></div><div>the wick<b>−${LN.wick}% from the 24h high</b></div><div>the buy<b>${LN.buy}% of the reserve</b></div></div>`;
     const open = S.m && S.m.pad, ps = $('#padSt'); ps.className = 'padst' + (open ? ' open' : ''); ps.innerHTML = `<i></i>${open ? 'launchpad open · ' + short(S.m.pad) : 'launchpad opening soon'}`;
     if (LN.busy) return; const b = $('#launchBtn'); if (!WL.pk) { b.textContent = 'Connect wallet'; b.disabled = false; return; } b.textContent = !open ? 'Launchpad opening soon' : c && c.err ? 'Fix the curve first' : 'Launch on Raydium →'; b.disabled = !open || !c || !!c.err; }
   async function doLaunch() { const st = stat('#lStat'); if (LN.busy) return; try { if (!WL.pk) { await connect(); return; } if (!(S.m && S.m.pad)) { st('The w1ck launchpad isn’t open yet. This button lights up the moment it is.'); return; }
       const c = curveNow(); if (!c || c.err) throw new Error(c ? c.err : 'pick a curve'); const name = $('#cName').value.trim(), symbol = $('#cSym').value.trim(); if (name.length < 2) throw new Error('Give your coin a name.'); if (symbol.length < 2) throw new Error('Give your coin a ticker.');
       const buySol = +$('#cBuy').value || 0; if (buySol > c.raise / 2) throw new Error('The dev buy is at most half the raise.');
       LN.busy = true; $('#launchBtn').disabled = true; st('building your launch on Raydium LaunchLab…');
-      const r = await post('buildLaunch', { wallet: WL.pk, pad: S.m.pad, name, symbol, image: LN.img, wick: LN.wick, buy: LN.buy, curve: LN.preset === 'default' ? 'default' : '', startSol: LN.s0, gradSol: LN.s1, buySol }); const s = await signSend(r.txs, st, false);
+      const r = await post('buildLaunch', { wallet: WL.pk, pad: S.m.pad, name, symbol, image: LN.img, wick: LN.wick, buy: LN.buy, run: LN.run, buySol }); const s = await signSend(r.txs, st, false);
       st(`$${esc(symbol)} is live.\nmint <b>${esc(r.mint)}</b>\n<a href="#/c/${r.mint}">open its page</a> · ${tsx(s.sigs[0])}`, 'ok'); setTimeout(async () => { await loadCoins(); renderBoard(); }, 5000); }
     catch (e) { if (e.message !== 'no wallet') st(esc(e.message || String(e)), 'err'); } finally { LN.busy = false; renderLaunch(); } }
 
@@ -387,7 +394,7 @@
     if (v === 'u') return profilePage(arg); if (v === 'c') return coinPage(arg); if (v === 'console') return consolePage();
     app().innerHTML = PAGES[v](); reveals(); pageInit(v); }
   function renderLive() { const el = $('#liveLine'); if (!el) return; const c = S.coins; if (!c) return; if (!c.open) { el.textContent = 'launchpad opening soon'; return; } const T = c.totals || {}; el.textContent = `${c.coins.length} coins · ${(T.reserveSol || 0).toFixed(3)} SOL in reserves · ${T.wicks || 0} wicks bought`; }
-  function onMarket() { if (!S.m) return; if (LN.s0 == null) preset('default'); else syncPickers(true); $$('.pkw').forEach(el => { const ch = $('.chips', el); if (ch && !ch.children.length) ch.innerHTML = (S.m.presets || []).map(p => `<button class="chip" data-pre="${p.id}">${esc(p.name)}</button>`).join(''); }); syncPickers(true); }
+  function onMarket() { if (!S.m) return; if (LN.s0 == null) preset(S.m.defaultPreset || 'mid'); else { setStart(); syncPickers(true); } $$('.pkw').forEach(el => { const ch = $('.chips', el); if (ch && !ch.children.length) ch.innerHTML = (S.m.presets || []).map(p => `<button class="chip" data-pre="${p.id}">${esc(p.name)}</button>`).join(''); }); syncPickers(true); }
   function navInit() { const top = $('#top'), pr = $('#prog'); addEventListener('scroll', () => { top.classList.toggle('sc', scrollY > 20); const h = document.documentElement.scrollHeight - innerHeight; pr.style.transform = `scaleX(${h > 0 ? clamp(scrollY / h) : 0})`; }, { passive: true }); addEventListener('hashchange', render); }
   backdrop(); walletInit(); navInit(); render();
   loadMarket().then(() => { onMarket(); renderStats(); });
