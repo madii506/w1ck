@@ -115,77 +115,67 @@
   // ---------------------------------------------------------------- the home page
   const app = () => $('#app');
   const wickIc = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v4M9 7h6v7H9zM12 14v5"/><circle cx="12" cy="20.5" r="1.6" fill="currentColor"/></svg>';
-  function home() { return `
-  <section class="hero"><div class="wrap" style="display:flex;flex-direction:column;align-items:center">
-    <h1 class="word">w<span class="one">1</span>ck</h1>
-    <p class="tagl">Pick the curve <span>/</span> pick the wick</p>
-    <div class="picker">${pickerHtml('hero')}</div>
-    <div class="hcta"><a class="btn go" href="#/launch" id="heroGo">Launch this coin →</a><a class="btn" href="#/board">Board</a><a class="btn" href="#/how">How it works</a></div>
-    <p class="hnote">Every coin gets its own curve and its own wick on Raydium LaunchLab. Real launches, signed by your wallet.</p>
-  </div><span class="cue">scroll</span></section>
-  <div class="stats"><div><small>coins launched</small><b id="kCoins">—</b><em id="kPad">launchpad</em></div><div><small>in reserves</small><b id="kRes">—</b><em id="kResU"></em></div><div><small>wicks bought</small><b id="kWicks">—</b><em id="kWicksN">wick log</em></div><div><small>burned</small><b id="kBurn">—</b><em>tokens</em></div><div><small>SOL</small><b id="kSol">—</b><em id="kSolC"></em></div></div>
-
-  <section class="sec" id="how"><div class="wrap">
-    <div class="head rv"><span class="kick">how it works</span><h2>Every wick<br><span>gets bought.</span></h2><p>Most coins get one curve and no floor under it. On w1ck, every coin picks its own curve and its own wick, and its trading fees are saved for the moment it wicks.</p></div>
-    <div class="story"><div class="steps">
-      <div class="stp" data-i="0"><span class="n">01</span><h3>Pick the curve</h3><p>Pick where your coin starts and where it graduates. w1ck turns the two numbers into Raydium LaunchLab's curve settings: how much of the supply is sold on the curve, and how much SOL it raises before it moves to a Raydium pool.</p></div>
-      <div class="stp" data-i="1"><span class="n">02</span><h3>Every trade fills the reserve</h3><p>Every buy and sell on the curve pays the 1% w1ck launchpad fee. All of it is counted to that coin's reserve. 0% to the creator, 0% to w1ck.</p></div>
-      <div class="stp" data-i="2"><span class="n">03</span><h3>Pick the wick</h3><p>At launch you pick how far the coin has to fall below its 24h high before the reserve steps in, from 10% to 60%. The rule is written into the coin's on-chain metadata and can't change.</p></div>
-      <div class="stp" data-i="3"><span class="n">04</span><h3>The wick gets bought</h3><p>When the coin wicks past its trigger, the reserve wallet spends the share you picked on the coin through Jupiter and burns everything it bought, in the same transaction, with a memo: <code>w1ck:buy:&lt;coin&gt;:&lt;lamports&gt;</code></p></div>
-      <div class="stp" data-i="4"><span class="n">05</span><h3>It graduates on your number</h3><p>When the curve fills, LaunchLab moves the raise and the rest of the supply into a Raydium pool at exactly your graduation market cap. Half the LP is burned for good.</p></div>
-    </div><div class="stage"><canvas id="stCv"></canvas><span class="lbl" id="stL">the curve</span><span class="lbr" id="stR"></span></div></div></div></section>
-
-  <section class="sec" id="play"><div class="wrap">
-    <div class="head rv"><span class="kick">try it</span><h2>Drag it down.<br><span>Watch it get bought.</span></h2><p>A simulator of the rule with your wick and your buy from the picker above. Drag the price on the chart down past the trigger.</p></div>
-    <div class="sim"><div class="card simc rv"><canvas id="simCv"></canvas></div>
-      <div class="card simp rv d1"><span class="note">simulator · not real data</span><div class="big" id="sDd">0.0%</div><span class="st" id="sSt">watching</span>
-        <div class="kvs"><div>trigger<b id="sTr">—</b></div><div>reserve<b id="sRes">—</b></div><div>each wick spends<b id="sBuy">—</b></div><div>wicks bought<b id="sN">0</b></div><div>supply burned<b id="sBurn">0</b></div></div><button class="btn sm" id="sReset">Reset</button></div></div></div></section>
-
-  <section class="sec" id="board"><div class="wrap">
-    <div class="head rv"><span class="kick">board</span><h2>Every coin here<br><span>picked its own wick.</span></h2><p>Coins launched on w1ck, their curves, their reserves and their rules. Read live from Raydium and the wick log.</p></div>
-    <div class="btool rv"><button class="chip on" data-s="new">newest</button><button class="chip" data-s="mcap">market cap</button><button class="chip" data-s="res">biggest reserve</button><button class="chip" data-s="fill">closest to graduating</button><span class="sp"></span><span class="mono dim" id="bCount"></span></div>
-    <div class="card board rv" id="bList"><div class="empty">reading the launchpad…</div></div>
-    <div class="else"><div class="card bigst rv"><span class="kick">elsewhere on LaunchLab</span><b id="llPct">—</b><p id="llTxt">of the newest coins on Raydium LaunchLab still take the default curve, and none of them has a wick rule.</p></div><div class="card rv d1" id="llList"><div class="empty">reading LaunchLab…</div></div></div></div></section>
-
-  <section class="sec" id="launch"><div class="wrap">
-    <div class="head rv"><span class="kick">launch</span><h2>Your coin.<br><span>Your curve. Your wick.</span></h2><p>One signature. The coin is created on Raydium LaunchLab with your curve, and its wick rule is written into its metadata.</p></div>
-    <div class="launch">
-      <div class="card lform rv"><div class="blk"><h3>01 · the curve and the wick</h3>${pickerHtml('launch')}</div>
-        <div class="blk"><h3>02 · the coin</h3><div class="frow"><label class="fld"><span>Name</span><input id="cName" maxlength="32" placeholder="Wick Dog"></label><label class="fld"><span>Ticker</span><input id="cSym" maxlength="10" placeholder="WDOG"></label></div>
-          <span class="fld"><span>Image</span></span><div class="imgs" id="imgs"></div><label class="fld"><input id="cImg" placeholder="or paste an https image link"></label>
-          <label class="fld"><span>Dev buy (SOL, optional, at most half the raise)</span><input id="cBuy" type="number" min="0" step="0.1" placeholder="0"></label></div></div>
-      <div class="card prevw rv d1"><div class="pcard" id="prev"></div><div class="padst" id="padSt"><i></i>reading the launchpad…</div><button class="btn go wide" id="launchBtn">Connect wallet</button><div class="stat2" id="lStat"></div>
-        <div class="cost">Supply 1,000,000,000 · 6 decimals · no mint or freeze authority · costs about 0.03 SOL in network fees and rent, plus your dev buy.</div></div>
-    </div></div></section>
-
-  <section class="sec" id="log"><div class="wrap">
-    <div class="head rv"><span class="kick">wick log</span><h2>Every wick.<br><span>Every burn.</span></h2><p>Each line is a Solana transaction signed by the reserve wallet: the swap, the burn and the memo, together.</p></div>
-    <div class="lgrid"><div class="card entries rv" id="eList"><div class="empty">reading the wick log…</div></div>
-      <div class="card por rv d1"><h3>Proof of reserves</h3><p>What every coin's reserve adds up to, against the SOL the reserve wallet actually holds plus the fees still waiting in LaunchLab's vault.</p><div id="porRows"><div class="empty">reading…</div></div></div></div></div></section>
-
-  <section class="sec" id="trade"><div class="wrap">
-    <div class="head rv"><span class="kick">trade</span><h2>Buy the dip<br><span>yourself.</span></h2><p>Any w1ck coin, or any token on Solana, with SOL. Routed by Jupiter, signed in your wallet.</p></div>
-    ${tradeHtml('home', '')}</div></section>
-
-  <section class="sec" id="people"><div class="wrap">
-    <div class="head rv"><span class="kick">people</span><h2>Profiles,<br><span>on Solana.</span></h2><p>Your profile is a memo signed by your wallet. Only you can change it. About 0.000005 SOL.</p></div>
-    <div class="pbar rv"><span class="mono dim" id="pCount"></span><button class="btn sm go" id="mkProfile">Make my profile</button></div><div class="people" id="peopleList"><div class="card empty">reading…</div></div></div></section>
-
-  <section class="sec" id="fees"><div class="wrap">
-    <div class="head rv"><span class="kick">fees and limits</span><h2>Every cut,<br><span>in the open.</span></h2></div>
-    <div class="fees"><div class="card rv"><b class="lm">1%</b><p>to the coin's reserve, on every curve trade</p></div><div class="card rv d1"><b>0.25%</b><p>to Raydium LaunchLab, its own protocol fee</p></div><div class="card rv d2"><b>0%</b><p>to the creator</p></div><div class="card rv d3"><b>0%</b><p>to w1ck</p></div></div>
-    <div class="card limits rv"><div>Run (graduation ÷ start)<b>1.5× to 32×</b></div><div>SOL raised on the curve<b>24 SOL minimum</b></div><div>Sold on the curve<b>up to 85% · at least 15% goes to the pool</b></div><div>The wick<b>10% to 60% below the 24h high</b></div><div>The buy<b>10% to 100% of the coin's reserve per wick</b></div><div>Dev buy<b>optional · at most half the raise, and 20 SOL</b></div><div>Graduation<b>a Raydium CPMM pool · 50% of the LP burned, 50% a fee key held by the reserve wallet</b></div></div></div></section>
-
-  <section class="sec" id="faq"><div class="wrap"><div class="head c rv"><span class="kick">faq</span><h2>Questions.</h2></div><div class="faq rv">
-    <details><summary>What's a wick?</summary><p>The thin line under a candle: the price fell that far, then came back. w1ck buys those moments for every coin, with that coin's own reserve.</p></details>
-    <details><summary>Where does a coin's reserve come from?</summary><p>Every trade on the curve pays the 1% w1ck launchpad fee. The reserve wallet claims those fees from Raydium LaunchLab, and each coin's reserve is 1% of its curve volume, minus every wick it has already bought.</p></details>
-    <details><summary>How is "the wick" measured?</summary><p>From Raydium's own LaunchLab candles: how far the latest price is below the highest price of the last 24 hours. When that drop reaches the coin's wick, its rule is armed.</p></details>
-    <details><summary>Who sends the buys?</summary><p>The reserve wallet, the one that created the w1ck launchpad, from the console. The site refuses to build a wick buy unless the coin is past its trigger, and every buy is public on the wick log with a link to Solscan.</p></details>
-    <details><summary>What happens to what it buys?</summary><p>It's burned in the same transaction as the buy. The supply goes down, and the burn is part of the wick log.</p></details>
-    <details><summary>Why pick my own curve?</summary><p>LaunchLab's default curve starts at a few thousand dollars and graduates around $35K, which is why the lowest caps get farmed. Pick a higher start, a longer runway or a quick graduation. The limits come from LaunchLab's own on-chain config.</p></details>
-    <details><summary>What does launching cost?</summary><p>Network fees and rent, about 0.03 SOL, plus your dev buy if you want one. No launch fee.</p></details>
-  </div></div></section>
-  <section class="closer"><div class="wrap rv"><h2>Every wick<br><span>gets bought.</span></h2><p>Pick the curve. Pick the wick. Sign once.</p><a class="btn go" href="#/launch">Launch on w1ck</a></div></section>`; }
+  const head = (k, a, b) => `<div class="head rv"><span class="kick">${k}</span><h2>${a}${b ? `<br><span>${b}</span>` : ''}</h2></div>`;
+  const PAGES = {
+    start: () => `<section class="hero start"><div class="wrap" style="display:flex;flex-direction:column;align-items:center">
+      <h1 class="word">w<span class="one">1</span>ck</h1>
+      <p class="tagl">Pick the curve <span>/</span> pick the wick</p>
+      <div class="picker">${pickerHtml('hero')}</div>
+      <div class="hcta"><a class="btn go" href="#/launch">Launch →</a><a class="btn" href="#/board">Board</a><a class="btn" href="#/how">How it works</a></div>
+      <p class="hnote mono" id="liveLine">reading the launchpad…</p></div></section>`,
+    how: () => `<div class="page"><div class="wrap">${head('how it works', 'Every wick', 'gets bought.')}
+      <div class="story"><div class="steps">
+        <div class="stp" data-i="0"><span class="n">01</span><h3>Pick the curve</h3><p>Where it starts, where it graduates.</p></div>
+        <div class="stp" data-i="1"><span class="n">02</span><h3>Trades fill the reserve</h3><p>1% of every trade goes to the coin's own reserve.</p></div>
+        <div class="stp" data-i="2"><span class="n">03</span><h3>Pick the wick</h3><p>How far below its 24h high before the reserve steps in.</p></div>
+        <div class="stp" data-i="3"><span class="n">04</span><h3>The wick gets bought</h3><p>The reserve buys the wick and burns it. One transaction.</p></div>
+        <div class="stp" data-i="4"><span class="n">05</span><h3>It graduates</h3><p>Into a Raydium pool at your number.</p></div>
+      </div><div class="stage"><canvas id="stCv"></canvas><span class="lbl" id="stL">the curve</span><span class="lbr" id="stR"></span></div></div>
+      <div style="height:90px"></div>${head('try it', 'Drag it down.')}
+      <div class="sim"><div class="card simc rv"><canvas id="simCv"></canvas></div>
+        <div class="card simp rv d1"><span class="note">simulator</span><div class="big" id="sDd">0.0%</div><span class="st" id="sSt">watching</span>
+          <div class="kvs"><div>trigger<b id="sTr">—</b></div><div>reserve<b id="sRes">—</b></div><div>each wick spends<b id="sBuy">—</b></div><div>wicks bought<b id="sN">0</b></div><div>burned<b id="sBurn">0</b></div></div><button class="btn sm" id="sReset">Reset</button></div></div>
+      <div class="hcta" style="margin-top:40px"><a class="btn go" href="#/launch">Launch a coin →</a></div></div></div>`,
+    board: () => `<div class="page"><div class="wrap">${head('board', 'Every coin', 'picked its own wick.')}
+      <div class="btool rv"><button class="chip on" data-s="new">newest</button><button class="chip" data-s="mcap">market cap</button><button class="chip" data-s="res">reserve</button><button class="chip" data-s="fill">closest to graduating</button><span class="sp"></span><span class="mono dim" id="bCount"></span></div>
+      <div class="card board rv" id="bList"><div class="empty">reading the launchpad…</div></div>
+      <div class="else"><div class="card bigst rv"><span class="kick">elsewhere on LaunchLab</span><b id="llPct">—</b><p id="llTxt">took the default curve.</p></div><div class="card rv d1" id="llList"><div class="empty">reading LaunchLab…</div></div></div></div></div>`,
+    launch: () => `<div class="page"><div class="wrap">${head('launch', 'Your curve.', 'Your wick.')}
+      <div class="launch">
+        <div class="card lform rv"><div class="blk"><h3>01 · curve and wick</h3>${pickerHtml('launch')}</div>
+          <div class="blk"><h3>02 · the coin</h3><div class="frow"><label class="fld"><span>Name</span><input id="cName" maxlength="32" placeholder="Wick Dog"></label><label class="fld"><span>Ticker</span><input id="cSym" maxlength="10" placeholder="WDOG"></label></div>
+            <span class="fld"><span>Image</span></span><div class="imgs" id="imgs"></div><label class="fld"><input id="cImg" placeholder="or paste an https image link"></label>
+            <label class="fld"><span>Dev buy (SOL, optional)</span><input id="cBuy" type="number" min="0" step="0.1" placeholder="0"></label></div></div>
+        <div class="card prevw rv d1"><div class="pcard" id="prev"></div><div class="padst" id="padSt"><i></i>reading the launchpad…</div><button class="btn go wide" id="launchBtn">Connect wallet</button><div class="stat2" id="lStat"></div>
+          <div class="cost">1B supply · no mint or freeze authority · ~0.03 SOL to launch</div></div>
+      </div></div></div>`,
+    log: () => `<div class="page"><div class="wrap">${head('wick log', 'Every wick.', 'Every burn.')}
+      <div class="lgrid"><div class="card entries rv" id="eList"><div class="empty">reading the wick log…</div></div>
+        <div class="card por rv d1"><h3>Proof of reserves</h3><p>Reserves owed vs SOL held.</p><div id="porRows"><div class="empty">reading…</div></div></div></div></div></div>`,
+    trade: () => `<div class="page"><div class="wrap">${head('trade', 'Buy the dip', 'yourself.')}${tradeHtml('home', '')}</div></div>`,
+    people: () => `<div class="page"><div class="wrap">${head('people', 'Profiles,', 'on Solana.')}
+      <div class="pbar rv"><span class="mono dim" id="pCount"></span><button class="btn sm go" id="mkProfile">Make my profile</button></div><div class="people" id="peopleList"><div class="card empty">reading…</div></div></div></div>`,
+    faq: () => `<div class="page"><div class="wrap">${head('fees and faq', 'Every cut,', 'in the open.')}
+      <div class="fees"><div class="card rv"><b class="lm">1%</b><p>to the coin's reserve</p></div><div class="card rv d1"><b>0.25%</b><p>to Raydium LaunchLab</p></div><div class="card rv d2"><b>0%</b><p>to the creator</p></div><div class="card rv d3"><b>0%</b><p>to w1ck</p></div></div>
+      <div class="card limits rv"><div>Run<b>1.5× to 32×</b></div><div>Raise<b>24 SOL minimum</b></div><div>Sold on the curve<b>up to 85%</b></div><div>The wick<b>10% to 60% below the 24h high</b></div><div>The buy<b>10% to 100% of the reserve</b></div><div>Dev buy<b>at most half the raise, 20 SOL</b></div><div>Graduation<b>Raydium pool · 50% LP burned</b></div></div>
+      <div class="faq rv" style="margin-top:50px">
+        <details><summary>What's a wick?</summary><p>The line under a candle: the price fell that far, then came back. w1ck buys those moments.</p></details>
+        <details><summary>Where does the reserve come from?</summary><p>1% of every curve trade, counted per coin, minus every wick it has already bought.</p></details>
+        <details><summary>How is the wick measured?</summary><p>From Raydium's own LaunchLab candles: the latest price against the 24h high.</p></details>
+        <details><summary>Who sends the buys?</summary><p>The reserve wallet, from the console, only when a coin is past its trigger. Every buy is on the wick log.</p></details>
+        <details><summary>What happens to what it buys?</summary><p>It's burned in the same transaction.</p></details>
+        <details><summary>What does launching cost?</summary><p>About 0.03 SOL in network fees, plus your dev buy. No launch fee.</p></details>
+      </div></div></div>`,
+  };
+  function pageInit(view) {
+    if (view === 'start') { $$('.pkw').forEach(pickerInit); renderStats(); }
+    if (view === 'how') { storyInit(); simInit(); }
+    if (view === 'board') { $$('.btool .chip').forEach(b => b.onclick = () => { SORT = b.dataset.s; $$('.btool .chip').forEach(x => x.classList.toggle('on', x === b)); renderBoard(); }); renderBoard(); renderLL(); }
+    if (view === 'launch') { $$('.pkw').forEach(pickerInit); launchInit(); renderLaunch(); }
+    if (view === 'log') renderLog();
+    if (view === 'trade') { const t = $('[data-trade="home"]'); tradeInit(t); if (t && t._picks) t._picks(); }
+    if (view === 'people') { $('#mkProfile').onclick = async () => { try { await connect(); editProfile(S.me); } catch (e) { } }; renderPeople(); }
+  }
 
   // ---------------------------------------------------------------- the story stage
   function storyInit() { const c = $('#stCv'); if (!c) return; const g = c.getContext('2d'); let step = 0, t0 = performance.now(), vis = false;
@@ -388,23 +378,22 @@
 
   // ---------------------------------------------------------------- router + glue
   function reveals() { if (RM) { $$('.rv').forEach(e => e.classList.add('shown')); return; } const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('shown'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' }); $$('.rv:not(.shown)').forEach(e => io.observe(e)); }
-  const SECTIONS = ['how', 'play', 'board', 'launch', 'log', 'trade', 'people', 'fees', 'faq'];
-  let homeOn = false;
-  function render() { const h = location.hash || '#/', [, view, arg] = h.split('/'); document.body.classList.toggle('sub', ['u', 'c', 'console'].includes(view));
+  let cur = null;
+  function render() { const h = location.hash || '#/', [, view, arg] = h.split('/'); const v = view && PAGES[view] ? view : (view === 'u' || view === 'c' || view === 'console') ? view : 'start';
+    document.body.classList.toggle('sub', v !== 'start'); document.body.classList.toggle('home', v === 'start');
     $$('#links a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === h));
-    if (view === 'u' && arg) { homeOn = false; return profilePage(arg); } if (view === 'c' && arg) { homeOn = false; return coinPage(arg); } if (view === 'console') { homeOn = false; return consolePage(); }
-    if (!homeOn) { homeOn = true; app().innerHTML = home(); reveals(); storyInit(); simInit(); launchInit(); $$('.pkw').forEach(pickerInit);
-      $$('.btool .chip').forEach(b => b.onclick = () => { SORT = b.dataset.s; $$('.btool .chip').forEach(x => x.classList.toggle('on', x === b)); renderBoard(); });
-      $('#mkProfile').onclick = async () => { try { await connect(); editProfile(S.me); } catch (e) { } }; fillHome(); }
-    else { $$('[data-trade]').forEach(el => el.dispatchEvent(new Event('bal'))); renderLaunch(); }
-    if (SECTIONS.includes(view)) { const el = $('#' + view); if (el) setTimeout(() => el.scrollIntoView({ behavior: RM ? 'auto' : 'smooth' }), 30); } else if (view === '' || view == null) scrollTo({ top: 0, behavior: 'smooth' }); }
-  function fillHome() { renderStats(); renderBoard(); renderLL(); renderLog(); renderPeople(); renderLaunch(); const t = $('[data-trade="home"]'); tradeInit(t); if (t && t._picks) t._picks(); }
+    const key = v + ':' + (arg || ''); if (key === cur) { $$('[data-trade]').forEach(el => el.dispatchEvent(new Event('bal'))); renderLaunch(); return; } cur = key;
+    scrollTo({ top: 0 }); app().classList.remove('pin'); void app().offsetWidth; app().classList.add('pin');
+    if (v === 'u') return profilePage(arg); if (v === 'c') return coinPage(arg); if (v === 'console') return consolePage();
+    app().innerHTML = PAGES[v](); reveals(); pageInit(v); }
+  function renderLive() { const el = $('#liveLine'); if (!el) return; const c = S.coins; if (!c) return; if (!c.open) { el.textContent = 'launchpad opening soon'; return; } const T = c.totals || {}; el.textContent = `${c.coins.length} coins · ${(T.reserveSol || 0).toFixed(3)} SOL in reserves · ${T.wicks || 0} wicks bought`; }
   function onMarket() { if (!S.m) return; if (LN.s0 == null) preset('default'); else syncPickers(true); $$('.pkw').forEach(el => { const ch = $('.chips', el); if (ch && !ch.children.length) ch.innerHTML = (S.m.presets || []).map(p => `<button class="chip" data-pre="${p.id}">${esc(p.name)}</button>`).join(''); }); syncPickers(true); }
   function navInit() { const top = $('#top'), pr = $('#prog'); addEventListener('scroll', () => { top.classList.toggle('sc', scrollY > 20); const h = document.documentElement.scrollHeight - innerHeight; pr.style.transform = `scaleX(${h > 0 ? clamp(scrollY / h) : 0})`; }, { passive: true }); addEventListener('hashchange', render); }
   backdrop(); walletInit(); navInit(); render();
   loadMarket().then(() => { onMarket(); renderStats(); });
-  Promise.all([loadCoins(), loadLedger(), loadLL(), loadSocial()]).then(() => { if (homeOn) fillHome(); else render(); });
-  setInterval(async () => { await loadMarket(); if (homeOn) renderStats(); }, 30000);
-  setInterval(async () => { await Promise.all([loadCoins(), loadLedger(), loadSocial()]); if (homeOn) { renderBoard(); renderLog(); renderPeople(); renderStats(); } }, 60000);
-  setInterval(async () => { await loadLL(); if (homeOn) renderLL(); }, 120000);
+  const refresh = () => { renderStats(); renderLive(); renderBoard(); renderLL(); renderLog(); renderPeople(); renderLaunch(); const t = $('[data-trade="home"]'); if (t && t._picks) t._picks(); };
+  Promise.all([loadCoins(), loadLedger(), loadLL(), loadSocial()]).then(refresh);
+  setInterval(async () => { await loadMarket(); renderStats(); }, 30000);
+  setInterval(async () => { await Promise.all([loadCoins(), loadLedger(), loadSocial()]); refresh(); }, 60000);
+  setInterval(async () => { await loadLL(); renderLL(); }, 120000);
 })();

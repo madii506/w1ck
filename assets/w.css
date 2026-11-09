@@ -211,3 +211,11 @@ a.brow:hover { background: rgba(255, 255, 255, .03); } .brow.h { font: 500 11px 
 @media (prefers-reduced-motion: reduce) { .rv { opacity: 1; transform: none; transition: none; } .head.rv h2 { clip-path: none; } .cue { animation: none; } }
 
 body.sub #cv { opacity: .35; transition: opacity .6s; } #cv { transition: opacity .6s; }
+/* v2: a start screen, every part of the site entered by pressing into it */
+.hero.start { min-height: 100svh; justify-content: center; padding: 96px 0 48px; }
+.hero.start .picker { margin-top: 28px; } .hero.start .hnote { margin-top: 18px; font-size: 12.5px; color: var(--dim); }
+#app.pin > * { animation: pin .55s var(--ease); } @keyframes pin { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.page .head { margin-bottom: 30px; } .page .head h2 { font-size: clamp(36px, 4.6vw, 60px); }
+.stp p { font-size: 18px; } .stp { min-height: 52vh; }
+@media (max-width: 1060px) { .hero.start { padding-top: 130px; justify-content: flex-start; } }
+@media (prefers-reduced-motion: reduce) { #app.pin > * { animation: none; } }
