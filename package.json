@@ -1,0 +1,16 @@
+{
+ "name": "w1ck",
+ "private": true,
+ "engines": {
+  "node": "22.x"
+ },
+ "dependencies": {
+  "@raydium-io/raydium-sdk-v2": "0.2.81-alpha",
+  "@solana/web3.js": "1.99.0",
+  "@solana/spl-token": "0.4.15",
+  "bn.js": "^5.2.1"
+ },
+ "overrides": {
+  "rpc-websockets": "9.3.3"
+ }
+}
